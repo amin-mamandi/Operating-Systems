@@ -101,6 +101,7 @@ int main(int argc, char** argv) {
   bug_info.sentence[3] = strdup("bug");
   bug_info.sentence[4] = strdup("is");
   bug_info.sentence[5] = strdup("a");
+  bug_info.sentence[6] = NULL;
 
   // Print the current bug population on various planets
   printf("The current bug population of Earth is about: %zu\n",
