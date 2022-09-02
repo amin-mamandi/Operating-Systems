@@ -50,13 +50,14 @@ Growing the array by 2:
 char* sentence[8];
 ``
 
-As the echo amd echoohce functions are just printing an array and they stop whenever they encountered a NULL variable, so I added two NULL variables at the begining and at the end of the sentence array:
+As the echo amd echoohce functions are just printing an array and they stop whenever they encountered a NULL variable, so I added two NULL variables at the begining and at the end of the sentence array
 
 ``
 bug_info.sentence[0] = NULL;
-
+``
 ...
 
+``
 bug_info.sentence[7] = NULL;
 ``
 
@@ -66,7 +67,7 @@ Also, there was an uninitialized variable:
 bug_info.num_bugs_on_mars = 0;
 ``
 
-Moreover, as we are giving a variable to the bug_info.sentence[3] twice, so we need to free up the first one before assigning a new thing to it :
+Moreover, as we are giving a variable to the bug_info.sentence[3] twice, so we need to free up the first one before assigning a new thing to it 
 
 ``
 free(bug_info.sentence[3]);
