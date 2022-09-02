@@ -44,21 +44,10 @@ free(possibly_lost - 4);
 
 **bugs.c**
 
-Growing the array by 2:
+Growing the array by 1:
 
 ```
-char* sentence[8];
-```
-
-As the echo amd echoohce functions are just printing an array and they stop whenever they encountered a NULL variable, so I added two NULL variables at the begining and at the end of the sentence array
-
-```
-bug_info.sentence[0] = NULL;
-```
-...
-
-```
-bug_info.sentence[7] = NULL;
+char* sentence[7];
 ```
 
 Also, there was an uninitialized variable:
@@ -67,24 +56,29 @@ Also, there was an uninitialized variable:
 bug_info.num_bugs_on_mars = 0;
 ```
 
-Moreover, as we are giving a variable to the bug_info.sentence[3] twice, so we need to free up the first one before assigning a new thing to it 
+Fixing this one by adding  * to the iter. So, it prints out the value of the iter instead of its address. 
+```
+for (iter = strs ; *iter != NULL; iter++){
+    printf("%s ", *iter);
+  }
+```
+
+Basically before iterating over the strs, we are storing the stored value in the address before strs. So we know when to stop printing it out reverse. 
 
 ```
-free(bug_info.sentence[3]);
-bug_info.sentence[3] = strdup("beautiful");
+for (; *iter != *stop_beginning ; iter--)
+    printf("%s ", *iter);
 ```
-...
+
+Finally, we are freeing up the allocated memories.
 
 ```
 free(bug_info.sentence[0]);
 free(bug_info.sentence[1]);
-free(bug_info.sentence[2]);
 free(bug_info.sentence[3]);
 free(bug_info.sentence[4]);
 free(bug_info.sentence[5]);
 free(bug_info.sentence[6]);
-free(bug_info.sentence[7]);	
-
 ```
 
 So, we are done here!
