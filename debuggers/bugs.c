@@ -138,8 +138,8 @@ int main(int argc, char** argv) {
   echoohce(bug_info.sentence);
 
   // Free all duplicated strings
-   free(bug_info.sentence[2]);
-  
+  free(bug_info.sentence[2]);
+  bug_info.sentence[2] = NULL;
     // Prints "The current bug adjective is: (null)"
   printf("The current bug adjective is: %s\n", bug_info.sentence[2]);
 
