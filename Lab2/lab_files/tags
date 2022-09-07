@@ -1,0 +1,18 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+CTRL_C_THRESHOLD	signals.c	13;"	d	file:
+FIRST_NAME	Makefile	/^FIRST_NAME=Amin$/;"	m
+KUID	Makefile	/^KUID=3073224$/;"	m
+LAB	Makefile	/^LAB=02$/;"	m
+LAST_NAME	Makefile	/^LAST_NAME=Mamandipoor$/;"	m
+TAR_BASENAME	Makefile	/^TAR_BASENAME=Lab$(LAB)_$(FIRST_NAME)_$(LAST_NAME)_$(KUID)$/;"	m
+TIMEOUT_SECONDS	signals.c	14;"	d	file:
+catch_int	signals.c	/^void catch_int(int sig_num)$/;"	f
+catch_tstp	signals.c	/^void catch_tstp(int sig_num)$/;"	f
+ctrl_c_count	signals.c	/^int ctrl_c_count = 0;$/;"	v
+got_response	signals.c	/^int got_response = 0;$/;"	v
+main	signals.c	/^int main(int argc, char* argv[])$/;"	f
