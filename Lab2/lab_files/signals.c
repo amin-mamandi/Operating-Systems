@@ -26,6 +26,7 @@ void catch_int(int sig_num)
      * exit or not */
     printf("\nReally exit? [Y/n]: ");
     fflush(stdout);
+    alarm(TIMEOUT_SECONDS);
     fgets(answer, sizeof(answer), stdin);
     if (answer[0] == 'n' || answer[0] == 'N') {
       printf("\nContinuing\n");
@@ -57,6 +58,13 @@ void catch_tstp(int sig_num)
 /* If the user RESPONDS before the alarm time elapses, the alarm should be cancelled */
 /* Hint: The alarm may need to be registered elsewhere */
 //YOUR CODE
+void catch_alrm(int sig_num)
+{
+//code for alarm
+printf("\n User taking too long to respond. Exiting...\n");
+fflush(stdout);
+exit(0);
+}
 
 int main(int argc, char* argv[])
 {
@@ -65,12 +73,22 @@ int main(int argc, char* argv[])
   /* be sure to familiarize with the fields of this struct type as you will need to set some of them */
   struct sigaction sa_int, sa_tstp, sa_alrm;
  
-  
+  sa_int.sa_handler  = catch_int;
+  sa_tstp.sa_handler = catch_tstp;
+
+  sa_alrm.sa_handler = catch_alrm;
+  sigfillset(&sa_alrm.sa_mask);
+  sa_alrm.sa_flags = 0;
+  sigaction(SIGALRM, &sa_alrm, NULL); 
+
   /* STEP - 2 (10 points) */
   /* clear the memory at each sigaction struct above by filling up each of their memory ranges with all 0 bytes */
   /* this acts to clear any fields in the initialized structs that may have garbage values */
   /* hint: use the function memset - type "man memset" on the terminal and take reference from it */
   //YOUR CODE
+  memset(&sa_int,  0, sizeof(sa_int));
+  memset(&sa_tstp, 0, sizeof(sa_tstp));
+  memset(&sa_alrm, 0, sizeof(sa_alrm));
 
   /* used to set a signal masking set. */
   /* this should be used somewhere within the sigaction structs to specify which signals to block/not block within the signal handler functions */
