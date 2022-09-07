@@ -17,6 +17,13 @@ int got_response = 0;
 /* you may need to modify this function */
 void catch_int(int sig_num)
 {
+
+  sigset_t mask_set;	
+  sigset_t old_set;
+  signal(SIGINT, catch_int);
+  sigfillset(&mask_set);
+  sigprocmask(SIG_UNBLOCK, &mask_set, NULL);
+
   /* increase count, and check if threshold was reached */
   ctrl_c_count++;
   if (ctrl_c_count >= CTRL_C_THRESHOLD) {
@@ -26,7 +33,7 @@ void catch_int(int sig_num)
      * exit or not */
     printf("\nReally exit? [Y/n]: ");
     fflush(stdout);
-    alarm(TIMEOUT_SECONDS);
+    alarm(3);
     fgets(answer, sizeof(answer), stdin);
     if (answer[0] == 'n' || answer[0] == 'N') {
       printf("\nContinuing\n");
@@ -35,6 +42,7 @@ void catch_int(int sig_num)
        * Reset Ctrl-C counter
        */
       ctrl_c_count = 0;
+      alarm(0);
     }
     else {
       printf("\nExiting...\n");
@@ -42,14 +50,24 @@ void catch_int(int sig_num)
       exit(0);
     }
   }
+  sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 
 /* the Ctrl-Z signal handler */
 void catch_tstp(int sig_num)
 {
+
+    sigset_t mask_set;	
+    sigset_t old_set;	
+    signal(SIGTSTP, catch_tstp);
+    sigfillset(&mask_set);
+    sigprocmask(SIG_SETMASK, &mask_set, &old_set);
+
   /* print the current Ctrl-C counter */
   printf("\n\nSo far, '%d' Ctrl-C presses were counted\n\n", ctrl_c_count);
   fflush(stdout);
+
+  sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 
 /* STEP - 1 (20 points) */
@@ -60,10 +78,20 @@ void catch_tstp(int sig_num)
 //YOUR CODE
 void catch_alrm(int sig_num)
 {
-//code for alarm
-printf("\n User taking too long to respond. Exiting...\n");
-fflush(stdout);
-exit(0);
+  sigset_t mask_set;
+  sigset_t old_set;
+  //sa_int.sa_handler  = catch_int;
+  //sa_int.sa_flags = 0;
+  //sigaction(SIGINT, NULL);
+
+  signal(SIGALRM, catch_alrm);
+  sigfillset(&mask_set);
+  sigprocmask(SIG_SETMASK, &mask_set, &old_set);
+  
+  printf("\n User taking too long to respond. Exiting...\n");
+  exit(0);
+
+  sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 
 int main(int argc, char* argv[])
@@ -73,19 +101,19 @@ int main(int argc, char* argv[])
   /* be sure to familiarize with the fields of this struct type as you will need to set some of them */
   struct sigaction sa_int, sa_tstp, sa_alrm;
  
-  sa_int.sa_handler  = catch_int;
-  sa_tstp.sa_handler = catch_tstp;
-
-  sa_alrm.sa_handler = catch_alrm;
-  sigfillset(&sa_alrm.sa_mask);
-  sa_alrm.sa_flags = 0;
-  sigaction(SIGALRM, &sa_alrm, NULL); 
+  /* sigacton has at least three of this arguments
+	sa_handler   
+	sa_sigaction
+	sa_mask      
+	sa_flags
+  */
 
   /* STEP - 2 (10 points) */
   /* clear the memory at each sigaction struct above by filling up each of their memory ranges with all 0 bytes */
   /* this acts to clear any fields in the initialized structs that may have garbage values */
   /* hint: use the function memset - type "man memset" on the terminal and take reference from it */
   //YOUR CODE
+  
   memset(&sa_int,  0, sizeof(sa_int));
   memset(&sa_tstp, 0, sizeof(sa_tstp));
   memset(&sa_alrm, 0, sizeof(sa_alrm));
@@ -110,12 +138,27 @@ int main(int argc, char* argv[])
   /* set signal handlers for SIGINT, SIGTSTP and SIGALRM */
   /* keep in mind which fields of the sigaction structs to fill before "registering" the sigactions */
   //YOUR CODE
+  sa_int.sa_handler  = catch_int;
+  sigfillset(&sa_int.sa_mask);
+  sa_int.sa_flags = 0;
+  sigaction(SIGINT, &sa_int, NULL);
   
-  
+  sa_tstp.sa_handler = catch_tstp;
+  sigfillset(&sa_tstp.sa_mask);
+  sa_tstp.sa_flags = 0;
+  sigaction(SIGTSTP, &sa_tstp, NULL);
+
+  sa_alrm.sa_handler = catch_alrm;
+  sigfillset(&sa_alrm.sa_mask);
+  sa_alrm.sa_flags = 0;
+  sigaction(SIGALRM, &sa_alrm, NULL);
+
+ 
   /* STEP - 6 (10 points) */
   /* ensure that the program keeps running to receive the signals */
   //YOUR CODE
-  
+  for ( ;; )
+  	pause();
 
   return 0;
 }
