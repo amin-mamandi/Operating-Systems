@@ -19,9 +19,10 @@ void catch_int(int sig_num)
 {
 
   sigset_t mask_set;	
-  sigset_t old_set;
-  signal(SIGINT, catch_int);
-  sigfillset(&mask_set);
+  //sigset_t old_set;
+  //sigemptyset(&mask_set); //clear the set first
+  //sigaddset(&mask_set, SIGINT); //adding to the set
+  sigaddset(&mask_set, SIGALRM);
   sigprocmask(SIG_UNBLOCK, &mask_set, NULL);
 
   /* increase count, and check if threshold was reached */
@@ -50,24 +51,20 @@ void catch_int(int sig_num)
       exit(0);
     }
   }
-  sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 
 /* the Ctrl-Z signal handler */
 void catch_tstp(int sig_num)
 {
 
-    sigset_t mask_set;	
-    sigset_t old_set;	
-    signal(SIGTSTP, catch_tstp);
-    sigfillset(&mask_set);
-    sigprocmask(SIG_SETMASK, &mask_set, &old_set);
+   // sigset_t mask_set;		
+   // sigaddset(SIGTSTP, &mask_set);
+   // sigprocmask(SIG_BLOCK, &mask_set, NULL);
 
   /* print the current Ctrl-C counter */
   printf("\n\nSo far, '%d' Ctrl-C presses were counted\n\n", ctrl_c_count);
   fflush(stdout);
 
-  sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 
 /* STEP - 1 (20 points) */
@@ -78,20 +75,10 @@ void catch_tstp(int sig_num)
 //YOUR CODE
 void catch_alrm(int sig_num)
 {
-  sigset_t mask_set;
-  sigset_t old_set;
-  //sa_int.sa_handler  = catch_int;
-  //sa_int.sa_flags = 0;
-  //sigaction(SIGINT, NULL);
-
-  signal(SIGALRM, catch_alrm);
-  sigfillset(&mask_set);
-  sigprocmask(SIG_SETMASK, &mask_set, &old_set);
   
   printf("\n User taking too long to respond. Exiting...\n");
   exit(0);
 
-  sigprocmask(SIG_SETMASK, &old_set, NULL);
 }
 
 int main(int argc, char* argv[])
@@ -126,20 +113,21 @@ int main(int argc, char* argv[])
   /* STEP - 3 (10 points) */
   /* setup mask_set - fill up the mask_set with all the signals to block within signal handler functions */
   //YOUR CODE
-  
+  sigemptyset(&mask_set); //clear the set first
+  sigaddset(&mask_set, SIGALRM); //adding alarm to the set
+   
   
   /* STEP - 4 (10 points) */
   /* ensure in the mask_set that the alarm signal does not get blocked while in another signal handler */
   /* this is because we want to be able to raise an alarm signal from within the other signal handlers */
   //YOUR CODE
-  
+  sa_int.sa_mask = mask_set;
   
   /* STEP - 5 (30 points) */
   /* set signal handlers for SIGINT, SIGTSTP and SIGALRM */
   /* keep in mind which fields of the sigaction structs to fill before "registering" the sigactions */
   //YOUR CODE
   sa_int.sa_handler  = catch_int;
-  sigfillset(&sa_int.sa_mask);
   sa_int.sa_flags = 0;
   sigaction(SIGINT, &sa_int, NULL);
   
@@ -156,10 +144,10 @@ int main(int argc, char* argv[])
  
   /* STEP - 6 (10 points) */
   /* ensure that the program keeps running to receive the signals */
-  //YOUR CODE
+  //YOUR CODE <<checked>>
   for ( ;; )
   	pause();
 
   return 0;
 }
-
+		
