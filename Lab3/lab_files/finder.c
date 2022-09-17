@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
   int p1[2], p2[2], p3[2];
 
   //Checking if input parameters DIR, STR and NUM_FILES are correct
-  if (argc != 3) {
+  if (argc != 4) {
     printf("usage: finder DIR STR NUM_FILES\n");
     exit(0);
   }
