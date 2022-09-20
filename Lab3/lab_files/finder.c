@@ -34,6 +34,7 @@ int main(int argc, char *argv[])
 
   //STEP 1	
   //Initialize pipes p1, p2, and p3
+  
   pipe(p1);
   pipe(p2);
   pipe(p3);
@@ -49,6 +50,7 @@ int main(int argc, char *argv[])
 
     dup2(p1[1], STDOUT_FILENO); 
     close(p1[0]);
+    close(p1[1]);
     close(p2[0]);
     close(p2[1]);
     close(p3[0]);
@@ -58,7 +60,10 @@ int main(int argc, char *argv[])
     //Prepare a command string representing the find command (follow example from the slide)
     //Invoke execl for bash and find (use BASH_EXEC and FIND_EXEC as paths)
     
-    execl(FIND_EXEC,FIND_EXEC, argv[1], "-name", "*.[ch]", (char*) NULL);
+    if (execl(FIND_EXEC,FIND_EXEC, argv[1], "-name", "*.[ch]", (char*) NULL) == -1)
+	{
+		printf("first child: %s\n", strerror(errno));
+	}
     
     exit(0);
   }
@@ -74,15 +79,19 @@ int main(int argc, char *argv[])
    
     dup2(p1[0], STDIN_FILENO);
     dup2(p2[1], STDOUT_FILENO);
-    //close(p1[0]);
+    close(p1[1]);
+    close(p1[0]);
     close(p2[0]);
-    //close(p2[1]);
+    close(p2[1]);
     close(p3[0]);
     close(p3[1]);
 
     //STEP 5
     //Invoke execl for xargs and grep (use XARGS_EXEC and GREP_EXEC as paths)
-    execl(XARGS_EXEC, XARGS_EXEC, GREP_EXEC, "-c", argv[2], (char*)NULL);
+    if (execl(XARGS_EXEC,  XARGS_EXEC,  GREP_EXEC,  "-c", argv[2], (char*)NULL) == -1)
+	{
+		printf("second child: %s\n", strerror(errno));
+	}
     
     exit(0);
   }
@@ -100,17 +109,21 @@ int main(int argc, char *argv[])
     dup2(p2[0], STDIN_FILENO);
     dup2(p3[1], STDOUT_FILENO);
 
-    //close(p2[0]);
-    close(p2[1]);
-    close(p3[0]);
-    //close(p3[1]);
     close(p1[1]);
     close(p1[0]);
+    close(p2[0]);
+    close(p2[1]);
+    close(p3[0]);
+    close(p3[1]);
+   
 
     //STEP 7
     //Invoke execl for sort (use SORT_EXEC as path)
     
-    execl(SORT_EXEC,SORT_EXEC,"-t", ":","+1.0","-2.0","--numeric","--reverse",(char*)NULL);
+    if (execl(SORT_EXEC, SORT_EXEC,"-t", ":", "+1.0", "-2.0", "--numeric", "--reverse", (char *)NULL) == -1)
+	{
+		printf("third child: %s\n", strerror(errno));
+	}
     
     exit(0);
   }
@@ -125,17 +138,23 @@ int main(int argc, char *argv[])
     
     dup2(p3[0], STDIN_FILENO);
     close(p3[1]);
-    //close(p3[0]);
     close(p1[0]);
     close(p1[1]);
     close(p2[0]);
     close(p2[1]);
+    close(p3[0]);
+    close(p3[1]);
 
     //STEP 8
     //Invoke execl for head (use HEAD_EXEC as path)
-    //char* lines[2]= {"--lines=",(char*)argv[3]};
+    char cmdbuf[BSIZE];
+    bzero(cmdbuf, BSIZE);
+    sprintf(cmdbuf, "--lines=%s", argv[3]);
    
-    execl(HEAD_EXEC,HEAD_EXEC,"--lines=5", (char*)NULL);
+    if (execl(HEAD_EXEC, HEAD_EXEC, cmdbuf, (char *)NULL) == -1)
+	{
+		printf("fourth child: %s\n", strerror(errno));
+	}
    
     exit(0);
   }
