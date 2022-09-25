@@ -16,14 +16,17 @@ main()
   int num, fd;
 
   /* create a FIFO special file with name FIFO_NAME */
-
+  char * myfifo = "/tmp/myfifo";
+  mkfifo(myfifo, 0666);
 
   /* open the FIFO file for writing. open() blocks for readers */
+  fd = open(myfifo, O_WRONLY);
   printf("waiting for readers...");
   fflush(stdout);
-
-  printf("got a reader !\n");
   
+  
+  printf("got a reader !\n");
+ 
   printf("Enter text to write in the FIFO file: ");
   fgets(str, MAX_LENGTH, stdin);
   while(!(feof(stdin))){

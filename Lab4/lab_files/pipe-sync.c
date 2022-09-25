@@ -23,19 +23,37 @@ int main()
   s  = "Use Pipe for Process Synchronization\n";
 
   /* create pipe */
+  int fd[2];
+  pipe(fd);
 
   ret = fork();
   if (ret == 0) {
-
+	  
+    close(fd[0]);
+    write(fd[1], "Child line 1\n", 15);
+    close(fd[1]);
+    
+    sleep(1);
     /* child process. */
-    printf("Child line 1\n");
+       
     printf("Child line 2\n");
+    
+    return stat;
+
   } else {
 
     /* parent process */
+
+    close(fd[1]);
+    char s [30];
+    read(fd[0], s, sizeof(s));
+    printf("%s", s);
     printf("Parent line 1\n");
+    
+    wait(&stat);
+
     printf("Parent line 2\n");
 
-    wait(&stat);
+    //wait(&stat);
   }
 }

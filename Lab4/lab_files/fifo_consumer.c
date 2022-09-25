@@ -16,9 +16,11 @@ main()
   int num, fd;
 
   /* create a FIFO special file with name FIFO_NAME */
-
+  char * myfifo = "/tmp/myfifo";
+  mkfifo(myfifo, 0666);
 
   /* open the FIFO file for reading. open() blocks for writers. */
+  fd = open(myfifo, O_RDONLY);
   printf("waiting for writers...");
   fflush(stdout);
   
