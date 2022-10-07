@@ -24,7 +24,7 @@ void *inc_count(void *arg)
 
   loc = 0;
   for (i = 0; i < my_args->loop; i++) {
-    __atomic_add_fetch(&count, my_args->loop,  __ATOMIC_RELAXED);
+    __atomic_add_fetch(&count, my_args->inc,  __ATOMIC_RELAXED);
     /*
      * How many machine instructions are required to increment count
      * and loc. Where are these variables stored? What implications
