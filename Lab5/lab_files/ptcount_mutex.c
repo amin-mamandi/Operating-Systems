@@ -22,7 +22,7 @@ void *inc_count(void *arg)
 {
   int i,loc;
   thread_args *my_args = (thread_args*) arg;
-
+  pthread_mutex_lock(&count_mutex);
   loc = 0;
   for (i = 0; i < my_args->loop; i++) {
     /*
@@ -35,6 +35,7 @@ void *inc_count(void *arg)
     count = count + my_args->inc;
     loc = loc + my_args->inc;
   }
+  pthread_mutex_unlock(&count_mutex);
   printf("Thread: %d finished. Counted: %d\n", my_args->tid, loc);
   free(my_args);
   pthread_exit(NULL);
@@ -72,12 +73,14 @@ int main(int argc, char *argv[])
    * targs struct. Note we create a different copy of it for each
    * thread.
    */
+
   for (i = 0; i < NUM_THREADS; i++) {
     targs = malloc(sizeof(thread_args));
     targs->tid = i;
     targs->loop = loop;
     targs->inc = inc;
     /* Make call to pthread_create here */
+    pthread_create(&threads[i], &attr, inc_count, (void *)targs);
   }
 
   /* Wait for all threads to complete using pthread_join.  The threads
@@ -85,6 +88,7 @@ int main(int argc, char *argv[])
    */
   for (i = 0; i < NUM_THREADS; i++) {
     /* Make call to pthread_join here */
+	pthread_join(threads[i], NULL);
   }
 
   printf ("Main(): Waited on %d threads. Final value of count = %d. Done.\n",
