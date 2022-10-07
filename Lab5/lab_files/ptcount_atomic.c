@@ -11,7 +11,7 @@ typedef struct thread_args {
 } thread_args ;
 
 int count = 0;
-
+pthread_mutex_t count_mutex;
 /*
  * This routine will be executed by each thread we choose to create.
  * The routine a new thread will execute is given as an arguent to the
@@ -23,17 +23,26 @@ void *inc_count(void *arg)
   thread_args *my_args = (thread_args*) arg;
 
   loc = 0;
+  //pthread_mutex_lock(&count_mutex);
   for (i = 0; i < my_args->loop; i++) {
-    __atomic_add_fetch(&count, my_args->inc,  __ATOMIC_RELAXED);
-    /*
+    #ifdef __GNUC__
+	 __atomic_add_fetch(&count, my_args->inc,  __ATOMIC_RELAXED);
+    #else
+	pthread_mutex_lock(&count_mutex);
+	count = count + my_args->inc;
+        pthread_mutex_unlock(&count_mutex);	
+	//printf("%d\n", loc);
+    #endif
+    loc = loc + my_args->inc;
+     /*
      * How many machine instructions are required to increment count
      * and loc. Where are these variables stored? What implications
      * does their repsective locations have for critical section
      * existence and the need for Critical section protection?
      * Consider using atomic operation(s) here.
      */
-    count = count + my_args->inc;
-    loc = loc + my_args->inc;
+    //count = count + my_args->inc;
+    //loc = loc + my_args->inc;
   }
   printf("Thread: %d finished. Counted: %d\n", my_args->tid, loc);
   free(my_args);
@@ -58,6 +67,9 @@ int main(int argc, char *argv[])
    */
   loop = atoi(argv[1]);
   inc = atoi(argv[2]);
+
+    /* Initialize mutex */
+  pthread_mutex_init(&count_mutex, NULL);
 
   /* For portability, explicitly create threads in a joinable state */
   pthread_attr_init(&attr);
@@ -91,6 +103,7 @@ int main(int argc, char *argv[])
 
   /* Clean up and exit */
   pthread_attr_destroy(&attr);
+  pthread_mutex_destroy(&count_mutex);
   pthread_exit (NULL);
 }
 
