@@ -139,9 +139,14 @@ static void *dp_thread(void *arg)
      * Grab both chopsticks: ASYMMETRIC SOLUTION
      * YOUR CODE HERE
      */
-    pthread_mutex_lock(left_chop(me));
-    pthread_mutex_lock(right_chop(me));
-
+    if((me->id) % 2 == 0) {
+	  pthread_mutex_lock(left_chop(me));
+	  pthread_mutex_lock(right_chop(me));
+    }
+    else {
+    	  pthread_mutex_lock(right_chop(me));
+    	  pthread_mutex_lock(left_chop(me));
+    }
     /*
      * Eat some random amount of food. Again, this involves a
      * subroutine call for each mouthful, which is a feature, not a
@@ -155,8 +160,17 @@ static void *dp_thread(void *arg)
      * Release both chopsticks: ASYMMETRIC SOLUTION
      * YOUR CODE HERE
      */
-    pthread_mutex_unlock(left_chop(me));
-    pthread_mutex_unlock(right_chop(me));
+       
+    if((me->id) % 2 == 0) {
+          pthread_mutex_unlock(left_chop(me));
+          pthread_mutex_unlock(right_chop(me));
+    }
+    else {
+          pthread_mutex_unlock(right_chop(me));
+          pthread_mutex_unlock(left_chop(me));
+    }
+    //pthread_mutex_unlock(left_chop(me));
+    //pthread_mutex_unlock(right_chop(me));
 
     /* 
      * Update my progress in current session and for all time.
