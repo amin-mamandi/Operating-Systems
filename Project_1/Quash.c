@@ -1,13 +1,25 @@
 #include <stdio.h>
-#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+//Globals
+char command [100];
+
+void signal_handler () {
+
+
+}
 
 
 
-int main () {
+int main()
+{
 
 
-
-	printf("Hello to Quash! \n");
+       	/* ensure that the program keeps running to receive the signals */
+       	for ( ;; )
+	       	pause();
 	return 0;
 
 }
