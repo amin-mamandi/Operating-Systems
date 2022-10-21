@@ -1,0 +1,5 @@
+Makefile
+Quash
+Quash.c
+quash.pdf
+text.txt
