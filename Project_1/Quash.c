@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define SIZE 1000000
+#define SIZE 1000
 #define PERMISSIONS 0644
 #define ll long long int
 
@@ -18,34 +18,30 @@ char *inputGiven;
 char *Args[SIZE];
 char *listOfCommands[SIZE];
 char *exportArgs[SIZE];
-char *cdArgs[SIZE];
 char currentDir[SIZE];
 char pseudoHome[SIZE];
 char directory[SIZE];
 char lastCD[SIZE];
-char copyOfInput[SIZE];
+
 
 typedef struct job {
-    char *jobsNames;
-    int jobsIndex;
-    int jobsStatus;
+    char *Name;
+    int Index;
+    int Status;
     int pid;
 }job;
 
 
-int totalNoOfJobs;
+int JobsNum;
 
-job myJobs[SIZE];
-
-// This stores the sorted list of jobs for "jobs" command
-job myJobsTemp[SIZE];
+job Jobs[SIZE];
 
 // This stores the fg job -> needed for CtrlC & Z command
 job fgJob;
 
 // For storing Foreground processes
-int foreProcessesID[SIZE];
-int noOfForeProcesses;
+int FPID[SIZE];
+int FPNums;
 
 void tokenizer(char *token[], char *s, char *delimParameter,  int *total){
     int index = 0;
@@ -78,7 +74,7 @@ int checkRedirection(int ArgsNum, char *Args[]) {
 }
 
 // This is the function for redirection
-int redirectionHandler(ll totalArgsInEachCommand, char *listOfArgs[]) {
+int redirectionHandler(int totalArgsInEachCommand, char *listOfArgs[]) {
     
     char inputFile[10000], outputFile[10000];
     int position1 = 0, position2 = 0, position3 = 0;
@@ -184,89 +180,83 @@ int checkPiping(char* Args[], int ArgsNum) {
   return 0;
 }
 
-void piping(char *command, char* Args[], long long ArgsNum) {
-    
-   char* pipedCommand[10000];
-   int numPipeCommands = 0;
-        // Split commands the on basis of |
-   tokenizer(pipedCommand, command, "|", &numPipeCommands);
-        // File descriptor
-   int fd[2];
-        // Storing the original Input & output filedescriptors
-   int originalInput = dup(STDIN_FILENO);
-   int originalOutput = dup(STDOUT_FILENO);
+void piping(char *command, int ArgsNum) {
 
-        // Calling on each command
-   for (int i = 0; i  < numPipeCommands; i++) {
-       int lenOfEachPipeCommand = 0;
-       char *spaceSepPipedCommand[10000];
-            // Tokenizing each command on basis of space, tab and newline
-       tokenizer(spaceSepPipedCommand, pipedCommand[i], " \t\n", &lenOfEachPipeCommand);
-            // Case - 1
-       if (i == 0) {
-          pipe(fd);
-          dup2(fd[1], STDOUT_FILENO); 
-          close(fd[1]);
-      }
+    //////////////////////////////////////////////////////////////////////////////  
+    if (strchr(command, '&')) {
+        //needs to be run at the background
+    }
+    //////////////////////////////////////////////////////////////////////////
+    char* pipedCommand[100];
+    int numPipeCommands = 0;
+    // Split commands the on basis of |
+    tokenizer(pipedCommand, command, "|", &numPipeCommands);
+    // File descriptor
+    int fd[2];
+    // Storing the original Input & output filedescriptors
+    int originalInput = dup(STDIN_FILENO);
+    int originalOutput = dup(STDOUT_FILENO);
+
+    // Calling on each command
+    for (int i = 0; i  < numPipeCommands; i++) {
+        int lenOfEachPipeCommand = 0;
+        char *onePipeCommand[10000];
+        // Tokenizing each command on basis of space, tab and newline
+        tokenizer(onePipeCommand, pipedCommand[i], " \t", &lenOfEachPipeCommand);
+        // Case - 1
+        if (i == 0) {
+            pipe(fd);
+            dup2(fd[1], STDOUT_FILENO); 
+            close(fd[1]);
+        }
         // Case - 2
-      else if(i == numPipeCommands - 1) {
-          dup2(fd[0], STDIN_FILENO);
-          dup2(originalOutput,1);
-      }
+        else if(i == numPipeCommands - 1) {
+            dup2(fd[0], STDIN_FILENO);
+            dup2(originalOutput,1);
+        }
         // Case - 3
-      else {
-          dup2(fd[0], STDIN_FILENO);
-          pipe(fd);
-          dup2(fd[1], STDOUT_FILENO); 
-          close(fd[1]);
-      }
-            // Fork the process
-      int returnedFork = fork();
-      int stat;
-      if(returnedFork == 0) {
-          if(checkRedirection(lenOfEachPipeCommand, spaceSepPipedCommand) == 1) {
-              redirectionHandler(lenOfEachPipeCommand, spaceSepPipedCommand);
-          }
-          else {
-              execvp(spaceSepPipedCommand[0], spaceSepPipedCommand);
-          }
-          exit(0);
-      }
-      else {
-          waitpid(returnedFork, &stat, WUNTRACED);
-          dup2(originalInput, STDIN_FILENO);
-          dup2(originalOutput, STDOUT_FILENO);
-      }
-  }
-  return;
+        else {
+            dup2(fd[0], STDIN_FILENO);
+            pipe(fd);
+            dup2(fd[1], STDOUT_FILENO); 
+            close(fd[1]);
+        }
+        // Fork the process
+        int pid_fork = fork();
+        int stat;
+        if(pid_fork == 0) {
+            if(checkRedirection(lenOfEachPipeCommand, onePipeCommand) == 1) {
+                redirectionHandler(lenOfEachPipeCommand, onePipeCommand);
+            }
+            else {
+                execvp(onePipeCommand[0], onePipeCommand);
+            }
+            exit(0);
+        }
+        else {
+            waitpid(pid_fork, &stat, WUNTRACED);
+            dup2(originalInput, STDIN_FILENO);
+            dup2(originalOutput, STDOUT_FILENO);
+        }
+    }
+    return;
 }
+
 // This comapres the 2 structs of jobs array
 int comparator(const void *p, const void *q){
-    return strcmp(((job*)p)->jobsNames, ((job*)q)->jobsNames);
+    return strcmp(((job*)p)->Name, ((job*)q)->Name);
 }
 
 // When the child is called
 int fgChildHandler(int ArgsNum, char *repeatArgs[]) {
-    // Make the child process as the leader of the new group of processes.
-    // Setting the process ID of child = Process ID of group
-    setpgid(0, 0);
 
-    // Removing the last '&' as we need the name
+    setpgid(0, 0);
     repeatArgs[ArgsNum] = NULL;
 
-    // For passing the control to signal
     tcsetpgrp(STDIN_FILENO, getpgid(0));
-
-    // Since the child has become the leader, so now give the control back to the
-    // default signals. SIGINT - Ctrl + C(Interrupt handler)
     signal(SIGINT, SIG_DFL);
-
-    // Causes the system to set the default signal handler for the given signal
-    // Ctrl + Z.
     signal(SIGTSTP, SIG_DFL);
 
-    // Overlay's a process that has been created by a call to the fork function.
-    // Execute the files.
     int check_execvp = execvp(repeatArgs[0], repeatArgs);
 
     // Check for the errors.
@@ -285,9 +275,9 @@ void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
     strcat(fgCommand, repeatArgs[0]);
 
     fgJob.pid = pid;
-    fgJob.jobsNames = malloc(strlen(repeatArgs[0]) * sizeof(char));
-    strcpy(fgJob.jobsNames, repeatArgs[0]);
-    fgJob.jobsIndex = 0;
+    fgJob.Name = malloc(strlen(repeatArgs[0]) * sizeof(char) + 2);
+    strcpy(fgJob.Name, repeatArgs[0]);
+    fgJob.Index = 0;
 
     int status;
     // waits for child process(fg)
@@ -296,7 +286,6 @@ void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
         printf("Invalid command");
 
     fgJob.pid = -1;
-
 
     // For passing the control to signal
     tcsetpgrp(STDIN_FILENO, getpgid(0));
@@ -313,36 +302,23 @@ void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
         }
 
         // push created child to jobs as its suspended in background!
-        myJobs[totalNoOfJobs].pid = pid;
-        myJobs[totalNoOfJobs].jobsNames = malloc(len * sizeof(char));
-        // strcpy(myJobs[totalNoOfJobs].jobsNames, fgCommand);
-        myJobs[totalNoOfJobs].jobsStatus = 1;
-        myJobs[totalNoOfJobs].jobsIndex = totalNoOfJobs;
+        Jobs[JobsNum].pid = pid;
+        Jobs[JobsNum].Name = malloc(len * sizeof(char));
 
-        // Store in the temp array as well
-        myJobsTemp[totalNoOfJobs].pid = pid;
-        myJobsTemp[totalNoOfJobs].jobsNames = malloc(len * sizeof(char));
-        // strcpy(myJobsTemp[totalNoOfJobs].jobsNames, fgCommand);
-        myJobsTemp[totalNoOfJobs].jobsStatus = 1;
-        myJobsTemp[totalNoOfJobs].jobsIndex = totalNoOfJobs;
+        Jobs[JobsNum].Status = 1;
+        Jobs[JobsNum].Index = JobsNum;
 
-        strcpy(myJobs[totalNoOfJobs].jobsNames, repeatArgs[0]);
-        strcpy(myJobsTemp[totalNoOfJobs].jobsNames, repeatArgs[0]);
-        // Copy the commandName in the processesNames array
+        strcpy(Jobs[JobsNum].Name, repeatArgs[0]);
         for (int i = 1; i < ArgsNum-1; i++) {
-            strcat(myJobs[totalNoOfJobs].jobsNames, " ");
-            strcat(myJobsTemp[totalNoOfJobs].jobsNames, " ");
-            strcat(myJobs[totalNoOfJobs].jobsNames, Args[i]);
-            strcat(myJobsTemp[totalNoOfJobs].jobsNames, Args[i]);
+            strcat(Jobs[JobsNum].Name, " ");
+            strcat(Jobs[JobsNum].Name, Args[i]);
         }
 
         // Now increase the total no. of jobs present
-        totalNoOfJobs++;
-
-
+        JobsNum++;
         // For the + thing.
-        foreProcessesID[noOfForeProcesses] = pid;
-        noOfForeProcesses++;
+        FPID[FPNums] = pid;
+        FPNums++;
 
         printf("Process %s with process ID [%d] suspended\n", fgCommand, (int)pid );
         return;
@@ -350,7 +326,6 @@ void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
         if (status == 1)
             printf("Process %s with process ID [%d] exited \n", fgCommand, (int)pid );
     }
-
 }
 
 void foregroundProcess(int ArgsNum, char *repeatArgs[]) {
@@ -358,45 +333,14 @@ void foregroundProcess(int ArgsNum, char *repeatArgs[]) {
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
 
-    // Forking child process
     int pid = fork();
 
-    // Sending the child process to background
     if (pid == 0) {
         fgChildHandler(ArgsNum, repeatArgs);
     }
-
-    // Means PID > 0, i.e. the parent's process
     else {
         fgParentHandler(pid, repeatArgs, ArgsNum);
-    }
-}
-
-
-// This is the signal controller for CTRL+C and CTRL+Z
-void signalControl(int signal){
-    if(fgJob.pid > 0)
-    {
-        myJobs[totalNoOfJobs].pid = fgJob.pid;
-        strcpy(myJobs[totalNoOfJobs].jobsNames,fgJob.jobsNames);
-        myJobs[totalNoOfJobs].jobsIndex = totalNoOfJobs;
-        myJobs[totalNoOfJobs].jobsStatus = 1;
-
-        myJobsTemp[totalNoOfJobs].pid = fgJob.pid;
-        strcpy(myJobsTemp[totalNoOfJobs].jobsNames, fgJob.jobsNames);
-        myJobsTemp[totalNoOfJobs].jobsIndex = totalNoOfJobs;
-        myJobsTemp[totalNoOfJobs].jobsStatus = 1;
-
-        totalNoOfJobs++;
-
-        kill(fgJob.pid , signal);
-        fgJob.pid = -1;
-        printf("\n");
-    }
-    else
-    {
-        printf("\nNo foreground process found\n");
-        printf("Press [ENTER] to continue\n");
+        free(fgJob.Name);
     }
 }
 
@@ -405,17 +349,18 @@ void sigchildHandler() {
     pid = waitpid(-1, NULL, WNOHANG);
     // Check if its a valid process
     if (pid < 0) {
-        printf("Invalid process ID\n");
+        //printf("Invalid process ID\n");
         return;
     }
 
     else {
-        for(int i = 0; i < totalNoOfJobs; i++){
-            if((int)pid == myJobs[i].pid) {
+        for(int i = 0; i < JobsNum; i++){
+            if((int)pid == Jobs[i].pid) {
                 // check if its a background process.
-                if (myJobs[i].jobsStatus != -1) {
-                    myJobs[i].jobsStatus = -1;
-                    printf("Completed: [%d]   %d   %s \n",  totalNoOfJobs , myJobs[i].pid, myJobs[i].jobsNames);
+                if (Jobs[i].Status != -1) {
+                    Jobs[i].Status = -1;
+                    printf("Completed: [%d]   %d   %s \n",  JobsNum , Jobs[i].pid, Jobs[i].Name);
+
                     break;
                 }
             }
@@ -425,13 +370,13 @@ void sigchildHandler() {
 }
 
 //////////////////////////////////////////////////////BACKGROUND_PROCESS//////////////////////////////////////////////////
-void backgroundProcess(long long ArgsNum, char *Args[]) {
-
+void backgroundProcess(int ArgsNum, char *Args[]) {
+    
     int pid = fork();
 
     if(pid == 0) {
         setpgrp();
-        Args[ArgsNum - 1] = NULL;
+        Args[ArgsNum - 1] = NULL; //delete &
         execvp(Args[0], Args); 
         exit(EXIT_SUCCESS);
     }
@@ -442,25 +387,25 @@ void backgroundProcess(long long ArgsNum, char *Args[]) {
         }
         // Now store the process details in the Jobs Arrays
         // Store pid
-        myJobs[totalNoOfJobs].pid = pid;
+        Jobs[JobsNum].pid = pid;
 
         // create a space in memory
-        myJobs[totalNoOfJobs].jobsNames = malloc(len * sizeof(char));
+        Jobs[JobsNum].Name = malloc(len * sizeof(char) + 2);
 
 
-        strcpy(myJobs[totalNoOfJobs].jobsNames, Args[0]);
+        strcpy(Jobs[JobsNum].Name, Args[0]);
 
         for (int i = 1; i < ArgsNum-1; i++) {
-            strcat(myJobs[totalNoOfJobs].jobsNames, " ");
-            strcat(myJobs[totalNoOfJobs].jobsNames, Args[i]);
+            strcat(Jobs[JobsNum].Name, " ");
+            strcat(Jobs[JobsNum].Name, Args[i]);
         }
         // Set status of bg processes as 1
-        myJobs[totalNoOfJobs].jobsStatus = 1;
+        Jobs[JobsNum].Status = 1;
         // Store index
-        myJobs[totalNoOfJobs].jobsIndex = totalNoOfJobs;
+        Jobs[JobsNum].Index = JobsNum;
         // Increase the total no of processes
-        totalNoOfJobs++;
-        fprintf(stderr, "Background job started: [%d] %d %s \n",totalNoOfJobs, myJobs[totalNoOfJobs-1].pid, myJobs[totalNoOfJobs-1].jobsNames);
+        JobsNum++;
+        fprintf(stderr, "Background job started: [%d] %d %s \n",JobsNum, Jobs[JobsNum-1].pid, Jobs[JobsNum-1].Name);
         return;
     }
 }
@@ -469,20 +414,24 @@ void backgroundProcess(long long ArgsNum, char *Args[]) {
 void jobs(int ArgsNum, char *Args[]) {
 
     // Sort the array of structs
-    qsort(myJobs, totalNoOfJobs, sizeof(myJobs[0]), comparator);
-    for(int i = 0; i < totalNoOfJobs; i++){
-        if (myJobs[i].jobsStatus == -1)
+    qsort(Jobs, JobsNum, sizeof(Jobs[0]), comparator);
+    for(int i = 0; i < JobsNum; i++){
+        if (Jobs[i].Status == -1)
             continue;
 
-        printf("[%d] ",myJobs[i].jobsIndex + 1);
+        printf("[%d] ",Jobs[i].Index + 1);
         printf("Running ");
-        printf("%d %s\n", myJobs[i].pid,  myJobs[i].jobsNames);
+        printf("%d %s\n", Jobs[i].pid,  Jobs[i].Name);
     }
 } 
 
 //////////////////////////////////////////////////////CD//////////////////////////////////////////////////
 void cd(int numArgs, char *commandArgument) {
+
     int check = 0;
+    if (numArgs == 1)
+        return;
+
     if(strchr(commandArgument, '$') != NULL)
     {
          check = 1;
@@ -532,6 +481,7 @@ void export(char *commandArgument) {
 
 //////////////////////////////////////////////////////LS//////////////////////////////////////////////////
 void ls(int numArgs, char *commandArgument) {
+
     if (numArgs == 2) {
         if (strcmp (commandArgument, "-a") == 0 ) {
             int pid = fork();
@@ -566,6 +516,9 @@ void ls(int numArgs, char *commandArgument) {
 //////////////////////////////////////////////////////ECHO//////////////////////////////////////////////////
 void echo (int numArgs, char *commandArgument[]){
 
+    if (numArgs == 1)
+        return;
+
     if(strchr(commandArgument[1], '$') != NULL){
         printf("%s\n", getenv(strtok(strtok(commandArgument[1], "$"), "$")));
         return;
@@ -588,99 +541,101 @@ void commandHandler() {
    
     int CmdsNum = 0;
     tokenizer(listOfCommands, inputGiven, "\n", &CmdsNum);
-    //tokenizer(listOfCommands, inputGiven, "#", &CmdsNum);
-
+    // free(inputGiven);
+    // Always one
     for (int i = 0; i < CmdsNum; i++) {
-        char tempStr[10000];
-        strcpy(tempStr, listOfCommands[i]);
-        int ArgsNum = 0;
-        tokenizer(Args, listOfCommands[i], " \t", &ArgsNum);
-        // Check piping
-        if(checkPiping(Args, ArgsNum) == 1){ //tokenize pipe commands
-            
-            piping(tempStr, Args, ArgsNum);
-        }
+    char tempStr[10000];
+    strcpy(tempStr, listOfCommands[i]);
+    int ArgsNum = 0;
+    tokenizer(Args, listOfCommands[i], " \t", &ArgsNum);
+    // Check piping
+    if(checkPiping(Args, ArgsNum) == 1){ 
         
+        piping(tempStr, ArgsNum);
+    }
+    
+    else {
+        // Check redirection
+        if (checkRedirection(ArgsNum, Args) == 1) {
+            
+            redirectionHandler(ArgsNum, Args);
+        }
+
         else {
-            // Check redirection
-            int check = checkRedirection(ArgsNum, Args);
-            if (check == 1) {
-                
-                redirectionHandler(ArgsNum, Args);
+		    // If the list is empty then simply return
+            if (ArgsNum == 0 || Args[0] == NULL){
+                // free(inputGiven);
+                return;
             }
 
+            // Checking the background process (if at last we have &)
+            else if(strcmp(Args[ArgsNum - 1],"&") == 0){
+                backgroundProcess(ArgsNum, Args);
+                return;
+            }
+            // Check for cd.
+            else if(strcmp(Args[0], "cd") == 0) {
+                cd(ArgsNum, Args[1]);
+            }
+
+            // Check for pwd
+            else if(strcmp(Args[0], "pwd") == 0) {
+                char myPwd[SIZE];
+                if(getcwd(myPwd, SIZE) == NULL) {
+                    perror("");
+                    exit(0);
+                }
+                printf("%s\n", myPwd);
+                return;
+            }
+
+            // Check for echo
+            else if(strcmp(Args[0], "echo") == 0) {
+                echo (ArgsNum, Args);
+                printf("\n");
+            }
+
+		     // Check for jobs
+            else if(strcmp(Args[0], "jobs") == 0) {
+                jobs(ArgsNum, Args);
+            }
+
+            // Check for ls
+            else if(strcmp(Args[0], "ls") == 0) {
+                int tmp = ArgsNum;
+                if (strchr(Args[ArgsNum-1], '#'))
+                    tmp--;
+                ls(tmp, Args[1]);
+            }
+
+            // Check for exit
+            else if(strcmp(Args[0], "exit") == 0) {
+                exit(0);
+            }
+		
+            // Check for quit
+            else if (strcmp(Args[0], "quit") == 0){
+                exit(0);
+            }
+		  
+            // Check fro export 
+            else if(strcmp(Args[0], "export") == 0) {
+                export(Args[1]);
+            }
+            // Check fro comments 
+            else if( (strcmp(Args[0], "#") == 0) || (strchr(Args[0], '#'))) {
+                return;
+            }
+            // Check fro comments 
+            else if(strcmp(Args[0], "kill") == 0) {
+                kill(atoi(Args[1]), atoi(Args[2]));
+                return;
+            }
             else {
-    		    // If the list is empty then simply return
-                if (ArgsNum == 0 || Args[0] == NULL){
-                    return;
-                }
-
-                // Checking the background process (if at last we have &)
-                else if(strcmp(Args[ArgsNum - 1],"&") == 0){
-                    backgroundProcess(ArgsNum, Args);
-                    return;
-                }
-                // Check for cd.
-                else if(strcmp(Args[0], "cd") == 0) {
-                    cd(ArgsNum, Args[1]);
-                }
-
-                // Check for pwd
-                else if(strcmp(Args[0], "pwd") == 0) {
-                    char myPwd[SIZE];
-                    if(getcwd(myPwd, SIZE) == NULL) {
-                        perror("");
-                        exit(0);
-                    }
-                    printf("%s\n", myPwd);
-                    return;
-                }
-
-                // Check for echo
-                else if(strcmp(Args[0], "echo") == 0) {
-                    echo (ArgsNum, Args);
-                    printf("\n");
-                }
-
-    		     // Check for jobs
-                else if(strcmp(Args[0], "jobs") == 0) {
-                    jobs(ArgsNum, Args);
-                }
-
-                // Check for ls
-                else if(strcmp(Args[0], "ls") == 0) {
-                    printf("%d\n", ArgsNum);
-                    ls(ArgsNum, Args[1]);
-                }
-
-                // Check for exit
-                else if(strcmp(Args[0], "exit") == 0) {
-                    exit(0);
-                }
-    		
-                // Check for quit
-                else if (strcmp(Args[0], "quit") == 0){
-                    exit(0);
-                }
-    		  
-                // Check fro export 
-                else if(strcmp(Args[0], "export") == 0) {
-                    export(Args[1]);
-                }
-                // Check fro comments 
-                else if( (strcmp(Args[0], "#") == 0) || (strchr(Args[0], '#'))) {
-                    return;
-                }
-                // Check fro comments 
-                else if(strcmp(Args[0], "kill") == 0) {
-                    kill(atoi(Args[1]), atoi(Args[2]));
-                    return;
-                }
-                else {
-                    foregroundProcess(ArgsNum, Args);
-                }
+                foregroundProcess(ArgsNum, Args);
             }
         }
+    }
         // check if any child process terminated
         signal(SIGCHLD, sigchildHandler);
     }
@@ -728,7 +683,8 @@ void getQuashInput(){
 
 void printPrompt(){
     getCurDir();
-    printf(" [QUASH]$ > ");
+    printf("\n");
+    printf("[QUASH]$   ");
 }
 
 void getPseudoHome() {
@@ -742,21 +698,20 @@ int main(){
 	
 	getPseudoHome();
 	strcpy(lastCD, pseudoHome);
-    totalNoOfJobs = 0;
-    noOfForeProcesses = 0;
+    JobsNum = 0;
+    FPNums = 0;
     while (1){
 
 		// Check if any child process terminated
         signal(SIGCHLD, sigchildHandler);
-        //signal(SIGINT, signalControl);
-        //signal(SIGTSTP, signalControl);
 
         getCurDir();
         printPrompt();
         getQuashInput();
-        commandHandler();
-
+        commandHandler();   
+        free(inputGiven);
    }
+
    return(0);
 }
 
