@@ -1,18 +1,28 @@
-# the compiler: gcc for C program, define as g++ for C++
-CC = gcc
+FIRST_NAME=Amin
+LAST_NAME=Mamandipoor
+KUID=3073224
+Project=1
+TAR_BASENAME=Project$(Project)_$(FIRST_NAME)_$(LAST_NAME)_$(KUID)
 
-# compiler flags:
-#  -g    adds debugging information to the executable file
-#  -Wall turns on most, but not all, compiler warnings
-CFLAGS  = -g -Wall
+DELIVERABLES=quash.c
 
-# the build target executable:
-TARGET = Quash
+all: quash
 
-all: $(TARGET)
-
-$(TARGET): $(TARGET).c
-	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c
+finder: quash.c
+        gcc -g $^ -o $@
 
 clean:
-	$(RM) $(TARGET)
+        rm -rf *.o quash $(TAR_BASENAME) $(TAR_BASENAME).tar.gz
+
+tar: clean
+#       create temp dir
+        mkdir $(TAR_BASENAME)
+#       copy the necessary files into the temp dir
+        cp $(DELIVERABLES) Makefile $(TAR_BASENAME)
+#       create the submission tar.gz
+        tar cvzf $(TAR_BASENAME).tar.gz $(TAR_BASENAME)
+#       remove the temp dir
+        rm -rf $(TAR_BASENAME)
+
+.PHONY: clean tar test
+

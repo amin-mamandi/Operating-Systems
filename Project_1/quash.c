@@ -43,6 +43,13 @@ job fgJob;
 int FPID[SIZE];
 int FPNums;
 
+void red () {
+    printf("\033[1;31m");
+}
+
+void reset() {
+    printf("\033[0m");
+}
 void tokenizer(char *token[], char *s, char *delimParameter,  int *total){
     int index = 0;
     token[0] = strtok(s, delimParameter);
@@ -461,7 +468,6 @@ void export(char *commandArgument) {
 	tokenizer(exportArgs, commandArgument, "=", &cmds);
     char* env = exportArgs[0];
     char* val = exportArgs[1];
-
     int check = 0;
     if(strchr(val, '$') != NULL)
     {
@@ -469,7 +475,7 @@ void export(char *commandArgument) {
     }
 
     if(check == 1) {
-        if( (setenv(env, getenv(strtok(strtok(commandArgument, "$"), "$")),1))< 0) {
+        if( (setenv(env, getenv(strtok(strtok(exportArgs[1], "$"), "$")), 1)) < 0) {
             perror("export ");
             return;
         }
@@ -519,8 +525,15 @@ void echo (int numArgs, char *commandArgument[]){
     if (numArgs == 1)
         return;
 
+    char * tmp;
     if(strchr(commandArgument[1], '$') != NULL){
-        printf("%s\n", getenv(strtok(strtok(commandArgument[1], "$"), "$")));
+	    if (strchr(commandArgument[1], '/') != NULL){
+		    tmp = strtok(commandArgument[1], " /");
+		    tmp = strtok(NULL, " /");
+		    printf("%s/%s\n", getenv(strtok(strtok(commandArgument[1], "$"), "$")), tmp);
+	    } else{
+		    printf("%s\n", getenv(strtok(strtok(commandArgument[1], "$"), "$")));
+	    }
         return;
     }
 
@@ -548,8 +561,14 @@ void commandHandler() {
     strcpy(tempStr, listOfCommands[i]);
     int ArgsNum = 0;
     tokenizer(Args, listOfCommands[i], " \t", &ArgsNum);
+
+    // Checking the background process (if at last we have &)
+    if(strcmp(Args[ArgsNum - 1],"&") == 0){
+	    backgroundProcess(ArgsNum, Args);
+            return; 
+    }
     // Check piping
-    if(checkPiping(Args, ArgsNum) == 1){ 
+    else if(checkPiping(Args, ArgsNum) == 1){ 
         
         piping(tempStr, ArgsNum);
     }
@@ -569,10 +588,10 @@ void commandHandler() {
             }
 
             // Checking the background process (if at last we have &)
-            else if(strcmp(Args[ArgsNum - 1],"&") == 0){
-                backgroundProcess(ArgsNum, Args);
-                return;
-            }
+            //else if(strcmp(Args[ArgsNum - 1],"&") == 0){
+            //    backgroundProcess(ArgsNum, Args);
+            //    return;
+            //}
             // Check for cd.
             else if(strcmp(Args[0], "cd") == 0) {
                 cd(ArgsNum, Args[1]);
@@ -628,7 +647,7 @@ void commandHandler() {
             }
             // Check fro comments 
             else if(strcmp(Args[0], "kill") == 0) {
-                kill(atoi(Args[1]), atoi(Args[2]));
+                kill(atoi(Args[2]), atoi(Args[1]));
                 return;
             }
             else {
@@ -683,8 +702,10 @@ void getQuashInput(){
 
 void printPrompt(){
     getCurDir();
-    printf("\n");
+   // printf("\n");
+    red();
     printf("[QUASH]$   ");
+    reset();
 }
 
 void getPseudoHome() {
@@ -702,7 +723,7 @@ int main(){
     FPNums = 0;
     while (1){
 
-		// Check if any child process terminated
+	// Check if any child process terminated
         signal(SIGCHLD, sigchildHandler);
 
         getCurDir();
