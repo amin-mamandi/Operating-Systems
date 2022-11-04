@@ -11,18 +11,14 @@
 
 #define SIZE 1000
 #define PERMISSIONS 0644
-#define ll long long int
 
 //Globals
-char *inputGiven;
+char *Input;
 char *Args[SIZE];
-char *listOfCommands[SIZE];
+char *listCmds[SIZE];
 char *exportArgs[SIZE];
 char currentDir[SIZE];
-char pseudoHome[SIZE];
 char directory[SIZE];
-char lastCD[SIZE];
-
 
 typedef struct job {
     char *Name;
@@ -50,6 +46,8 @@ void red () {
 void reset() {
     printf("\033[0m");
 }
+//////////////////////////////////////////////////////TOKENIZER//////////////////////////////////////////////////
+
 void tokenizer(char *token[], char *s, char *delimParameter,  int *total){
     int index = 0;
     token[0] = strtok(s, delimParameter);
@@ -59,14 +57,16 @@ void tokenizer(char *token[], char *s, char *delimParameter,  int *total){
         // Returns the total no. of commands
     *total = index;
 }
+//////////////////////////////////////////////////////CURRENT_DIRECTORY//////////////////////////////////////////////////
 
-void getCurDir() {
+void getCurrentDir() {
     if(getcwd(currentDir, SIZE) == NULL) {
         perror("");
         exit(0);
     }
     return;
 }
+//////////////////////////////////////////////////////CHECK_REDIRECTIONAL//////////////////////////////////////////////////
 
 int checkRedirection(int ArgsNum, char *Args[]) {
    for (int i = 0; i < ArgsNum; i++) {
@@ -79,8 +79,8 @@ int checkRedirection(int ArgsNum, char *Args[]) {
    }
    return 0;
 }
+//////////////////////////////////////////////////////REDIRECTIONAL//////////////////////////////////////////////////
 
-// This is the function for redirection
 int redirectionHandler(int totalArgsInEachCommand, char *listOfArgs[]) {
     
     char inputFile[10000], outputFile[10000];
@@ -89,14 +89,12 @@ int redirectionHandler(int totalArgsInEachCommand, char *listOfArgs[]) {
     int pos = 100;
     int inputfd, outputfd;
 
-    // Check for the first positions of all the <, >, >>.
     for(int i = 0; i < totalArgsInEachCommand; i++) {
         if(strcmp(listOfArgs[i], "<") == 0) position1 = i;
         if(strcmp(listOfArgs[i], ">") == 0) position2 = i;
         if(strcmp(listOfArgs[i], ">>") == 0) position3 = i;
     }
 
-    // Case - 1
     if(position1 != 0) {
         
         strcpy(inputFile, listOfArgs[position1 + 1]);
@@ -108,14 +106,12 @@ int redirectionHandler(int totalArgsInEachCommand, char *listOfArgs[]) {
             return -1;
         }
 
-        // Storing the input file
         inputDup = dup(STDIN_FILENO);
         if (inputDup < 0) {
             perror("Dup ");
             return -1;
         }
 
-        // Open the input file  
         inputfd = open(inputFile, O_RDONLY, PERMISSIONS);
         if (inputfd < 0) {
             printf("File doesn't exist!\n");
@@ -127,7 +123,6 @@ int redirectionHandler(int totalArgsInEachCommand, char *listOfArgs[]) {
         }
     }
     
-    // Case - 2
     if(position2 != 0 || position3 != 0) {
         
         if(position2 + position3 <= pos)
@@ -157,7 +152,6 @@ int redirectionHandler(int totalArgsInEachCommand, char *listOfArgs[]) {
         }
     }
 
-    // Forking the process
     pid_t pidValue;
     pidValue = fork();
     if(pidValue < 0) {
@@ -178,6 +172,7 @@ int redirectionHandler(int totalArgsInEachCommand, char *listOfArgs[]) {
     }   
     return 0;
 }
+//////////////////////////////////////////////////////CHECK_PIPE//////////////////////////////////////////////////
 
 int checkPiping(char* Args[], int ArgsNum) {
 	for (int i = 0; i < ArgsNum; i++) {
@@ -186,6 +181,7 @@ int checkPiping(char* Args[], int ArgsNum) {
   }
   return 0;
 }
+//////////////////////////////////////////////////////PIPE//////////////////////////////////////////////////
 
 void piping(char *command, int ArgsNum) {
 
@@ -196,39 +192,30 @@ void piping(char *command, int ArgsNum) {
     //////////////////////////////////////////////////////////////////////////
     char* pipedCommand[100];
     int numPipeCommands = 0;
-    // Split commands the on basis of |
     tokenizer(pipedCommand, command, "|", &numPipeCommands);
-    // File descriptor
     int fd[2];
-    // Storing the original Input & output filedescriptors
     int originalInput = dup(STDIN_FILENO);
     int originalOutput = dup(STDOUT_FILENO);
 
-    // Calling on each command
     for (int i = 0; i  < numPipeCommands; i++) {
         int lenOfEachPipeCommand = 0;
         char *onePipeCommand[10000];
-        // Tokenizing each command on basis of space, tab and newline
         tokenizer(onePipeCommand, pipedCommand[i], " \t", &lenOfEachPipeCommand);
-        // Case - 1
         if (i == 0) {
             pipe(fd);
             dup2(fd[1], STDOUT_FILENO); 
             close(fd[1]);
         }
-        // Case - 2
         else if(i == numPipeCommands - 1) {
             dup2(fd[0], STDIN_FILENO);
             dup2(originalOutput,1);
         }
-        // Case - 3
         else {
             dup2(fd[0], STDIN_FILENO);
             pipe(fd);
             dup2(fd[1], STDOUT_FILENO); 
             close(fd[1]);
         }
-        // Fork the process
         int pid_fork = fork();
         int stat;
         if(pid_fork == 0) {
@@ -249,12 +236,11 @@ void piping(char *command, int ArgsNum) {
     return;
 }
 
-// This comapres the 2 structs of jobs array
 int comparator(const void *p, const void *q){
     return strcmp(((job*)p)->Name, ((job*)q)->Name);
 }
+//////////////////////////////////////////////////////FOREGROUND_CHILD//////////////////////////////////////////////////
 
-// When the child is called
 int fgChildHandler(int ArgsNum, char *repeatArgs[]) {
 
     setpgid(0, 0);
@@ -266,7 +252,6 @@ int fgChildHandler(int ArgsNum, char *repeatArgs[]) {
 
     int check_execvp = execvp(repeatArgs[0], repeatArgs);
 
-    // Check for the errors.
     if(check_execvp < 0){
         printf("Invalid command!\n");
         exit(EXIT_FAILURE);
@@ -274,9 +259,9 @@ int fgChildHandler(int ArgsNum, char *repeatArgs[]) {
     exit(EXIT_SUCCESS);
 }
 
+//////////////////////////////////////////////////////FOREGROUND_PARENT//////////////////////////////////////////////////
 
 void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
-    // When the parent is called
     char fgCommand[SIZE];
     strcpy(fgCommand, "");
     strcat(fgCommand, repeatArgs[0]);
@@ -287,28 +272,22 @@ void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
     fgJob.Index = 0;
 
     int status;
-    // waits for child process(fg)
-    // Here WUNTRACED uis used as the status is sent back even if the child is stopped by ctrlZ (i.e. not killed)
     if (waitpid(pid, &status, WUNTRACED) < 0)
         printf("Invalid command");
 
     fgJob.pid = -1;
 
-    // For passing the control to signal
     tcsetpgrp(STDIN_FILENO, getpgid(0));
 
-
-    // Setting the default behaviours.
     signal(SIGTTIN, SIG_DFL);
     signal(SIGTTOU, SIG_DFL);
 
-    if(WIFSTOPPED(status)){   // if child is stopped(not killed) by ctrl-z, we can check that by this macro!
+    if(WIFSTOPPED(status)){   
         int len = strlen(fgCommand);
         for (int i = 1; i < ArgsNum - 1; i++) {
             len += strlen(repeatArgs[i]);
         }
 
-        // push created child to jobs as its suspended in background!
         Jobs[JobsNum].pid = pid;
         Jobs[JobsNum].Name = malloc(len * sizeof(char));
 
@@ -321,9 +300,7 @@ void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
             strcat(Jobs[JobsNum].Name, Args[i]);
         }
 
-        // Now increase the total no. of jobs present
         JobsNum++;
-        // For the + thing.
         FPID[FPNums] = pid;
         FPNums++;
 
@@ -334,6 +311,7 @@ void fgParentHandler(int pid, char *repeatArgs[], int ArgsNum) {
             printf("Process %s with process ID [%d] exited \n", fgCommand, (int)pid );
     }
 }
+//////////////////////////////////////////////////////FOREGROUND_PROCESS//////////////////////////////////////////////////
 
 void foregroundProcess(int ArgsNum, char *repeatArgs[]) {
 
@@ -350,20 +328,18 @@ void foregroundProcess(int ArgsNum, char *repeatArgs[]) {
         free(fgJob.Name);
     }
 }
+//////////////////////////////////////////////////////SIGCHILD//////////////////////////////////////////////////
 
 void sigchildHandler() {
     pid_t pid;
     pid = waitpid(-1, NULL, WNOHANG);
-    // Check if its a valid process
     if (pid < 0) {
-        //printf("Invalid process ID\n");
         return;
     }
 
     else {
         for(int i = 0; i < JobsNum; i++){
             if((int)pid == Jobs[i].pid) {
-                // check if its a background process.
                 if (Jobs[i].Status != -1) {
                     Jobs[i].Status = -1;
                     printf("Completed: [%d]   %d   %s \n",  JobsNum , Jobs[i].pid, Jobs[i].Name);
@@ -448,16 +424,16 @@ void cd(int numArgs, char *commandArgument) {
             perror("cd ");
             return;
         }
-        strcpy(lastCD, currentDir);
-        getCurDir();
+
+        getCurrentDir();
     }
     else {
         if (chdir(commandArgument) < 0) {
             perror("cd ");
             return;
         }
-        strcpy(lastCD, currentDir);
-        getCurDir();
+
+        getCurrentDir();
     }
     return;
 }
@@ -550,17 +526,17 @@ void echo (int numArgs, char *commandArgument[]){
     }
 }
 
-void commandHandler() {
+void cmdHandler() {
    
     int CmdsNum = 0;
-    tokenizer(listOfCommands, inputGiven, "\n", &CmdsNum);
-    // free(inputGiven);
+    tokenizer(listCmds, Input, "\n", &CmdsNum);
+    // free(Input);
     // Always one
     for (int i = 0; i < CmdsNum; i++) {
     char tempStr[10000];
-    strcpy(tempStr, listOfCommands[i]);
+    strcpy(tempStr, listCmds[i]);
     int ArgsNum = 0;
-    tokenizer(Args, listOfCommands[i], " \t", &ArgsNum);
+    tokenizer(Args, listCmds[i], " \t", &ArgsNum);
 
     // Checking the background process (if at last we have &)
     if(strcmp(Args[ArgsNum - 1],"&") == 0){
@@ -583,15 +559,10 @@ void commandHandler() {
         else {
 		    // If the list is empty then simply return
             if (ArgsNum == 0 || Args[0] == NULL){
-                // free(inputGiven);
+                // free(Input);
                 return;
             }
 
-            // Checking the background process (if at last we have &)
-            //else if(strcmp(Args[ArgsNum - 1],"&") == 0){
-            //    backgroundProcess(ArgsNum, Args);
-            //    return;
-            //}
             // Check for cd.
             else if(strcmp(Args[0], "cd") == 0) {
                 cd(ArgsNum, Args[1]);
@@ -661,76 +632,38 @@ void commandHandler() {
     return;
 }
 
-void getQuashInput(){
-    inputGiven = (char *)malloc(SIZE);
-    fgets(inputGiven, SIZE, stdin);
-    if (strcmp(inputGiven, "clear") == 0) {
+void getInput(){
+    Input = (char *)malloc(SIZE);
+    fgets(Input, SIZE, stdin);
+    if (strcmp(Input, "clear") == 0) {
         printf("\033[H\033[J");
     }
 }
 
-/*void updateRelativePathToMove() {
-    // If the paths are not equal, then we aren't at the home directory.
-    if (strcmp(currentDir, pseudoHome) != 0) {
-        // This is the first non-matched index
-        int nonMatchedIndex = 0;
-        int index = 0;
-        for (index; pseudoHome[index]; index++)
-        {
-            if (pseudoHome[index] != currentDir[index])
-            {
-                nonMatchedIndex = index;
-                break;
-            }
-        }
-        // If the value of the first non-matched index = 0 then we have to copy the currentpath to directoty.
-        if (nonMatchedIndex != 0) {
-            strcpy(directory, currentDir);
-        }
-        else {
-            // Else found the relative path
-            directory[0] = '~';
-            int p, j;
-            for (p = 1, j = index; currentDir[j]; p++, j++)
-            {
-                directory[p] = currentDir[j];
-            }
-            directory[p] = '\0';
-        }
-    }
-}*/
-
-void printPrompt(){
-    getCurDir();
+void print(){
+    getCurrentDir();
    // printf("\n");
     red();
     printf("[QUASH]$   ");
     reset();
 }
 
-void getPseudoHome() {
-    getCurDir();
-    strcpy(pseudoHome, currentDir);
-}
 
 int main(){
 
 	printf("Welcome to Quash.... \n \n");
-	
-	getPseudoHome();
-	strcpy(lastCD, pseudoHome);
+
     JobsNum = 0;
     FPNums = 0;
     while (1){
 
-	// Check if any child process terminated
         signal(SIGCHLD, sigchildHandler);
 
-        getCurDir();
-        printPrompt();
-        getQuashInput();
-        commandHandler();   
-        free(inputGiven);
+        getCurrentDir();
+        print();
+        getInput();
+        cmdHandler();   
+        free(Input);
    }
 
    return(0);

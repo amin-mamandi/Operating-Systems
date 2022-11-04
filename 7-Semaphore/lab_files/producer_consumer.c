@@ -24,8 +24,8 @@
 #define CONSUMER_CPU   25
 #define CONSUMER_BLOCK 10
 
-#define YOU_WILL_DETERMINE_FOR_PRODUCERS 678
-#define YOU_WILL_DETERMINE_FOR_CONSUMERS 678
+#define YOU_WILL_DETERMINE_FOR_PRODUCERS 5
+#define YOU_WILL_DETERMINE_FOR_CONSUMERS 5
 
 /*****************************************************
  *   Shared Queue Related Structures and Routines    *
@@ -275,6 +275,7 @@ void *producer (void *parg)
   fifo           = mydata->q;
   total_inserted = mydata->count; // this one is also shared!
   my_tid         = mydata->tid;
+  int  value = 0;
 
   /*
    * Continue producing until the total produced reaches the
@@ -293,7 +294,7 @@ void *producer (void *parg)
      * produce, so wait until it is not full. Use sem_wait on the
      * appropriate semaphore from the fifo queue, for the producer.
      */
-    
+    sem_wait(fifo->slotsToPut);
 	
 	/*
      * Check to see if the total produced by all producers has reached
@@ -302,8 +303,14 @@ void *producer (void *parg)
      * that are in the waiting queue for fifo->slotsToPut and fifo->slotsToGet respectively
      */
     if (*total_inserted >= WORK_MAX) {
+     // sem_getvalue(fifo->slotsToPut, &value);
+      // if (value == WORK_MAX)
+      //  printf("value pro = %d\n", value);
+      // sem_post(fifo->slotsToPut);
+      sem_post(fifo->slotsToGet);
       break;
     }
+
 
     /*
      * OK, so we produce an item. Increment the counter of total
@@ -311,14 +318,18 @@ void *producer (void *parg)
      * queue. We are accessing the shared queue fifo in this section.
      * So, we should ensure mutual exclusion.
      */
+    pthread_mutex_lock(fifo->mutex);
+
     item = (*total_inserted);
     queueAdd (fifo, item);
     ++(*total_inserted);
     
+    pthread_mutex_unlock(fifo->mutex);
     /*
      * Announce the production outside the critical section 
      * Let the consumers know that there is item in the buffer
      */
+    sem_post(fifo->slotsToGet);
     printf("prod %d:  %d.\n", my_tid, item);
 
   }
@@ -340,6 +351,7 @@ void *consumer (void *carg)
   fifo           = mydata->q;
   total_consumed = mydata->count; // this one is also shared!
   my_tid         = mydata->tid;
+  int value = 0;
 
   /*
    * Continue producing until the total consumed by all consumers
@@ -351,8 +363,7 @@ void *consumer (void *carg)
      * produce, so wait until it is not empty. Use sem_wait on the
      * appropriate semaphore from the fifo queue, for the consumer.
      */
-    
-	
+     sem_wait(fifo->slotsToGet);
 	/*
      * If total consumption has reached the configured limit, we can
      * stop. Before stopping, execute some additional sem_post for the 
@@ -360,6 +371,11 @@ void *consumer (void *carg)
      * queue for fifo->slotsToPut and fifo->slotsToGet respectively
      */
     if (*total_consumed >= WORK_MAX) {
+     // sem_getvalue(fifo->slotsToGet, &value);
+        // if (value == 0)
+         // printf("value con = %d\n", value);
+      sem_post(fifo->slotsToPut);
+      //sem_post(fifo->slotsToGet);
       break;
     }
 
@@ -371,17 +387,25 @@ void *consumer (void *carg)
      * others are busy consuming them. We are accessing the shared queue 
      * fifo in this section. So, we should ensure mutual exclusion.
      */
+
+    pthread_mutex_lock(fifo->mutex);
+
     queueRemove (fifo, &item);
     (*total_consumed)++;
 
 
+    pthread_mutex_unlock(fifo->mutex);
     /*
      * Do work outside the critical region to consume the item
      * obtained from the queue and then announce its consumption.
 	 * Also, notify the producers that there is available space
 	 * in the buffer
      */
+
+
+    sem_post(fifo->slotsToPut);
     do_work(CONSUMER_CPU,CONSUMER_CPU);
+
     printf ("con %d:   %d.\n", my_tid, item);
 
   }
