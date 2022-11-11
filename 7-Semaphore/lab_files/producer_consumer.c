@@ -25,7 +25,7 @@
 #define CONSUMER_BLOCK 10
 
 #define YOU_WILL_DETERMINE_FOR_PRODUCERS 5
-#define YOU_WILL_DETERMINE_FOR_CONSUMERS 5
+#define YOU_WILL_DETERMINE_FOR_CONSUMERS 0
 
 /*****************************************************
  *   Shared Queue Related Structures and Routines    *
@@ -306,8 +306,8 @@ void *producer (void *parg)
      // sem_getvalue(fifo->slotsToPut, &value);
       // if (value == WORK_MAX)
       //  printf("value pro = %d\n", value);
-      // sem_post(fifo->slotsToPut);
       sem_post(fifo->slotsToGet);
+      sem_post(fifo->slotsToPut);
       break;
     }
 
@@ -375,7 +375,7 @@ void *consumer (void *carg)
         // if (value == 0)
          // printf("value con = %d\n", value);
       sem_post(fifo->slotsToPut);
-      //sem_post(fifo->slotsToGet);
+      sem_post(fifo->slotsToGet);
       break;
     }
 
@@ -403,9 +403,10 @@ void *consumer (void *carg)
      */
 
 
-    sem_post(fifo->slotsToPut);
+
     do_work(CONSUMER_CPU,CONSUMER_CPU);
 
+    sem_post(fifo->slotsToPut);
     printf ("con %d:   %d.\n", my_tid, item);
 
   }
