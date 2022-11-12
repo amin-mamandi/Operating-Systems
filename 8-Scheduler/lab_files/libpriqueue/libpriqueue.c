@@ -252,5 +252,7 @@ int priqueue_size(priqueue_t *q)
 void priqueue_destroy(priqueue_t *q)
 {
 
+  //a while loop on all elements on the queue until it gets size of zero
+
 
 }
