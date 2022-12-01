@@ -1,0 +1,4 @@
+	rm -rf *.o quash $(TAR_BASENAME) $(TAR_BASENAME).tar.gz
+	rm -rf $(TAR_BASENAME)
+rm
+rm

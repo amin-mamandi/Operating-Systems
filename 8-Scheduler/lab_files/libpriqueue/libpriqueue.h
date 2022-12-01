@@ -26,15 +26,15 @@ typedef struct _node_t {
   void * data; //the data stored in that node
   void * next; //the next process to be executed
   void * prev; //the previous process to be executed       
-} node_t
+} node_t;
        
 typedef struct _priqueue_t
 {
 	int (* comparer)(void *, void *);
-  int size;       // size of the queue
+  	int size;       // size of the queue
 	node_t * top;   //the process with the highest priroty
-  node_t * tail;  //the process with the least priority
-  node_t * queue; // the processes's queue 
+  	node_t * tail;  //the process with the least priority
+  	node_t *queue; // the processes's queue 
 } priqueue_t;
 
 

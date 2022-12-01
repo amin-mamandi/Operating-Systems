@@ -21,6 +21,7 @@ void priqueue_init(priqueue_t *q, int(*comparer)(const void *, const void *))
   q->queue     = NULL;
   q->tail      = NULL;
   q->size      = 0;
+  q->top       = NULL;
   q->comparer  = comparer;
 }
 
@@ -34,48 +35,48 @@ void priqueue_init(priqueue_t *q, int(*comparer)(const void *, const void *))
 int priqueue_offer(priqueue_t *q, void *ptr)
 {
 
-  node_t *newNode = (node_t *)malloc(sizeof(node_t));
-  newNode->data = ptr;
-  newNode->next = NULL;
-  newNode->prev = NULL;
+  node_t *offNode = (node_t *)malloc(sizeof(node_t));
+  offNode->data = ptr;
+  offNode->next = NULL;
+  offNode->prev = NULL;
 
   node_t * curr = q->queue;
 
   if(curr == NULL){ 
-    q->queue = newNode;
-    q->tail = newNode;
+    q->queue = offNode;
+    q->tail = offNode;
     q->size++;
     return 0;
   }
   int ctr = 0;
   while(curr != NULL){
-    if(q->comparer(newNode->data, curr->data) < 0)
+    if(q->comparer(offNode->data, curr->data) < 0)
     {
       if(curr->prev == NULL){
-        newNode->next = curr;
-        newNode->prev = NULL; 
-        q->queue = newNode;
-        curr->prev = newNode;
+        offNode->next = curr;
+        offNode->prev = NULL; 
+        q->queue = offNode;
+        curr->prev = offNode;
         q->size++;
         return ctr;
       }
       else{
-        newNode->prev = curr->prev;
-        ((node_t *)(curr->prev))->next = newNode;
-        curr->prev = newNode;
-        newNode->next = curr;
+        offNode->prev = curr->prev;
+        ((node_t *)(curr->prev))->next = offNode;
+        curr->prev = offNode;
+        offNode->next = curr;
         q->size++;
         return ctr;
       }
     }
+    ctr = ctr + 1;
     curr = curr->next;
-    ctr++;
   }
   
-  q->tail->next = newNode;
-  newNode->prev = q->tail;
-  q->tail = newNode;
   q->size++;
+  q->tail->next = offNode;
+  offNode->prev = q->tail;
+  q->tail = offNode;
   return ctr;
 }
 
@@ -110,16 +111,16 @@ void *priqueue_peek(priqueue_t *q)
 void *priqueue_poll(priqueue_t *q)
 {
 	if(q->size > 0){
-    int * store = (int *)malloc(sizeof(q->queue->data));//INT
-    *store = *(int *)(q->queue->data);//INT
-    q->queue = q->queue->next;
-    q->queue->prev = NULL;
-    q->size--;
-    return (void *) store;
-  }
-  else{
-    return NULL;
-  };
+    		int * store = (int *)malloc(sizeof(q->queue->data));
+    		*store = *(int *)(q->queue->data);
+    		q->queue = q->queue->next;
+    		q->queue->prev = NULL;
+    		q->size--;
+    		return (void *) store;
+  	}
+  	else{
+    		return NULL;
+  	};
 }
 
 
@@ -210,25 +211,27 @@ int priqueue_remove(priqueue_t *q, void *ptr)
  */
 void *priqueue_remove_at(priqueue_t *q, int index)
 {
+	//let;s first check if the index is valid or not
   if(index < 0 || index >= q->size){
     return NULL;
   }
-  node_t * elem = q->queue;
-  while(elem != NULL){
+  node_t * tmp = q->queue;
+  while(tmp != NULL){
     if(index == 0){
-      if(elem->prev != NULL)
-        ((node_t *)elem->prev)->next = elem->next;
+      if(tmp->prev != NULL)
+        ((node_t *)tmp->prev)->next = tmp->next;
       else
-        q->queue = (node_t *)elem->next;
-      if(elem->next != NULL)
-        ((node_t *)elem->next)->prev = elem->prev;
+        q->queue = (node_t *)tmp->next;
+      if(tmp->next != NULL)
+        ((node_t *)tmp->next)->prev = tmp->prev;
       else
-        q->queue = (node_t *)elem->prev;
+        q->queue = (node_t *)tmp->prev;
       q->size--;
-      return elem->data;
+      return tmp->data;
     }
-    elem = elem->next;
+    tmp = tmp->next;
     index--;
+  }
 }
 
 

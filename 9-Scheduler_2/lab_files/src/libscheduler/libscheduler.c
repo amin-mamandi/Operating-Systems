@@ -8,16 +8,73 @@
 #include "libscheduler.h"
 #include "../libpriqueue/libpriqueue.h"
 
+priqueue_t queue;
+int preemptive;
+int numCores;
+int (*comp) (const void *, const void *);
+float waitingTime, turnaroundTime, responseTime;
+int numJobs;
+int currentTime;
 
 /**
   Stores information making up a job to be scheduled including any statistics.
-
   You may need to define some global variables or a struct to store your job queue elements. 
 */
 typedef struct _job_t
 {
-
+	int number;
+  	int arrival_time;
+  	int start_time;
+  	int running_time;
+  	int remaining_time;
+  	int priority;
 } job_t;
+
+job_t** coreInUse;
+
+int fcfs(const void *a, const void *b)
+{
+  job_t* joba = (job_t*)a;
+  job_t* jobb = (job_t*)b;
+  if(joba->number == jobb->number)
+    return 0;
+  return joba->arrival_time - jobb->arrival_time;
+}
+
+int sjf(const void *a, const void *b)
+{
+  job_t* joba = (job_t*)a;
+  job_t* jobb = (job_t*)b;
+  if(joba->number == jobb->number)
+    return 0;
+  int diff = joba->remaining_time - jobb->remaining_time;
+  if(diff == 0)
+    return joba->arrival_time - jobb->arrival_time;
+  else
+    return diff;
+}
+
+int pri(const void *a, const void *b)
+{
+  job_t* joba = (job_t*)a;
+  job_t* jobb = (job_t*)b;
+  if(joba->number == jobb->number)
+    return 0;
+  int diff = joba->priority - jobb->priority;
+  if(diff == 0)
+    return joba->arrival_time - jobb->arrival_time;
+  else
+    return diff;
+}
+
+int rr(const void *a, const void *b)
+{
+  job_t* joba = (job_t*)a;
+  job_t* jobb = (job_t*)b;
+  if(joba->number == jobb->number)
+    return 0;
+  return -1;
+}
 
 
 /**
@@ -35,6 +92,34 @@ typedef struct _job_t
 void scheduler_start_up(int cores, scheme_t scheme)
 {
 
+	waitingTime = 0.0;
+  	turnaroundTime = 0.0;
+  	responseTime = 0.0;
+ 	numJobs = 0;
+  	currentTime = 0;
+
+  	numCores = cores;
+
+  	coreInUse = malloc(sizeof(job_t) * cores);
+
+  	int i = 0;
+  	while(i < cores)
+  	{
+    		coreInUse[i] = 0;
+    		i++;
+  	}
+
+  	switch(scheme)
+  	{
+    	case FCFS: comp = fcfs; preemptive = 0; break;
+    	case SJF:  comp = sjf;  preemptive = 0; break;
+    	case PSJF: comp = sjf;  preemptive = 1; break;
+    	case PRI:  comp = pri;  preemptive = 0; break;
+    	case PPRI: comp = pri;  preemptive = 1; break;
+    	case RR:   comp = rr;   preemptive = 0; break;
+  	}
+
+  	priqueue_init(&queue,comp);
 }
 
 
@@ -60,7 +145,50 @@ void scheduler_start_up(int cores, scheme_t scheme)
  */
 int scheduler_new_job(int job_number, int time, int running_time, int priority)
 {
-	return -1;
+
+  deincrement_Remaining_Times(time);
+  job_t* job = malloc(sizeof(job_t));
+  job->number = job_number;
+  job->arrival_time = time;
+  job->start_time = -1;
+  job->running_time = running_time;
+  job->remaining_time = running_time;
+  job->priority = priority;
+
+  int core = are_Any_Cores_Idle();
+  if(core != -1)
+  {
+    job->start_time = time;
+    // printf("CHANGING START TIME ROFLCOPTER: job: %d arrival: %d start: %d\n",
+    //         job->number, job->arrival_time, job->start_time);
+    coreInUse[core] = job;
+    return core;
+  }
+
+  if(preemptive)
+  {
+    core = get_Least_Preferential_Job(job);
+    if(core > -1)
+    {
+      job_t* temp = coreInUse[core];
+      if(time == temp->start_time)
+      {
+        temp->start_time = -1;
+        // printf("CHANGING START TIME ROFLCOPTER: job: %d arrival: %d start: %d\n",
+        //         temp->number, temp->arrival_time, temp->start_time);
+      }
+      job->start_time = time;
+      // printf("CHANGING START TIME ROFLCOPTER: job: %d arrival: %d start: %d\n",
+      //         job->number, job->arrival_time, job->start_time);
+      coreInUse[core] = job;
+      priqueue_offer(&queue,temp);
+      return core;
+    }
+  }
+
+  priqueue_offer(&queue,(void*)job);
+
+  return -1;
 }
 
 
@@ -80,6 +208,32 @@ int scheduler_new_job(int job_number, int time, int running_time, int priority)
  */
 int scheduler_job_finished(int core_id, int job_number, int time)
 {
+	deincrement_Remaining_Times(time);
+
+  job_t* finJob = coreInUse[core_id];
+  numJobs++;
+  waitingTime += (time - finJob->arrival_time - finJob->running_time);
+  turnaroundTime += (time - finJob->arrival_time);
+  responseTime+=(finJob->start_time - finJob->arrival_time);
+  // printf("---Added %d to response time.\n",finJob->start_time - finJob->arrival_time);
+
+
+  free(coreInUse[core_id]);
+  coreInUse[core_id] = 0;
+
+  if(priqueue_size(&queue) > 0)
+  {
+    job_t* job = (job_t*)priqueue_poll(&queue);
+    if(job->start_time == -1)
+    {
+      job->start_time = time;
+      // printf("CHANGING START TIME ROFLCOPTER: job: %d arrival: %d start: %d\n",
+      //         job->number, job->arrival_time, job->start_time);
+    }
+    coreInUse[core_id] = job;
+    return job->number;
+  }
+
 	return -1;
 }
 
@@ -99,7 +253,19 @@ int scheduler_job_finished(int core_id, int job_number, int time)
  */
 int scheduler_quantum_expired(int core_id, int time)
 {
-	return -1;
+	deincrement_Remaining_Times(time);
+
+  job_t* job = coreInUse[core_id];
+
+  if(priqueue_size(&queue) > 0)
+  {
+    priqueue_offer(&queue,job);
+    job = priqueue_poll(&queue);
+    if(job->start_time == -1)
+      job->start_time = time;
+    coreInUse[core_id] = job;
+  }
+  return job->number;
 }
 
 
@@ -112,6 +278,10 @@ int scheduler_quantum_expired(int core_id, int time)
  */
 float scheduler_average_waiting_time()
 {
+	if(numJobs > 0)
+  {
+    return waitingTime/numJobs;
+  }
 	return 0.0;
 }
 
@@ -125,6 +295,10 @@ float scheduler_average_waiting_time()
  */
 float scheduler_average_turnaround_time()
 {
+	if(numJobs > 0)
+  {
+    return turnaroundTime/numJobs;
+  }
 	return 0.0;
 }
 
@@ -138,7 +312,10 @@ float scheduler_average_turnaround_time()
  */
 float scheduler_average_response_time()
 {
-	return 0.0;
+	if(!preemptive && comp != rr)
+    return waitingTime/numJobs;
+  else
+    return responseTime/numJobs;
 }
 
 
@@ -150,7 +327,7 @@ float scheduler_average_response_time()
 */
 void scheduler_clean_up()
 {
-
+	priqueue_destroy(&queue);
 }
 
 
@@ -168,4 +345,62 @@ void scheduler_clean_up()
 void scheduler_show_queue()
 {
 
+	int x = 0;
+  int size = priqueue_size(&queue);
+  if(size == 0)
+  {
+    printf("Queue is empty");
+    return;
+  }
+  while(x < size)
+  {
+    job_t* job = (job_t*)priqueue_at(&queue, x);
+    printf("Index: %d Job Number:%d Arrival Time: %d Remaining Time: %d Priority: %d\n",
+           x, job->number, job->arrival_time, job->remaining_time, job->priority);
+    x++;
+  }
+}
+
+int are_Any_Cores_Idle()
+{
+  int i = 0;
+  while(i < numCores)
+  {
+    if(coreInUse[i] == 0)
+      return i;
+    i++;
+  }
+  return -1;
+}
+
+void deincrement_Remaining_Times(int time)
+{
+  int timeDifference = (time - currentTime);
+
+  int i = 0;
+  while(i < numCores)
+  {
+    if(coreInUse[i] != 0)
+      coreInUse[i]->remaining_time -= timeDifference;
+    i++;
+  }
+  currentTime = time;
+}
+
+int get_Least_Preferential_Job(void* job)
+{
+  job_t* currentJob = (job_t*)job;
+  int core = -1;
+
+  int i = 0;
+  while(i < numCores)
+  {
+    if(comp(currentJob,coreInUse[i]) < 0)
+    {
+      core = i;
+      currentJob = coreInUse[i];
+    }
+    i++;
+  }
+  return core;
 }
