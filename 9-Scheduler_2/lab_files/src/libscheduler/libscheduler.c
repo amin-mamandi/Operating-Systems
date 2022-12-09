@@ -9,6 +9,7 @@
 #include "../libpriqueue/libpriqueue.h"
 
 priqueue_t queue;
+
 int preemptive;
 int numCores;
 int (*comp) (const void *, const void *);
