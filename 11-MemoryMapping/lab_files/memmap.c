@@ -57,27 +57,43 @@ int main (int argc, char *argv[])
   /* 
    * 1. find size of input file 
    */
-
+  if (fstat(fdin, &statbuf) < 0){
+    err_sys("fstat error");
+  }
   /* 
    * 2. seek to the location corresponding to the last desired byte in the output file
+    lseek(fd,5,SEEK_SET) – this moves the pointer 5 positions ahead starting from the beginning of the file
    */
-
+  if (lseek(fdout, statbuf.st_size-1, SEEK_SET) < 0) {
+    err_sys("lseek error last byte");
+  }
   /* 
    * 3. write a dummy byte at the last location to tell the OS that this and all preceding bytes
    *    shall belong to this file
    */
+  if (write(fdout, "", 1) < 0 ) {
+    err_sys("write error");
+  }
 
   /* 
    * 4. seek back to offset 0 in the output file
    */
+  if (lseek(fdout, -(statbuf.st_size-1), SEEK_CUR) < 0) {
+    err_sys("lseek error offset 0");
+  }
 
   /* 
    * 5. mmap the input file 
    */
-
+  if ((src = mmap(NULL, statbuf.st_size, (PROT_READ), MAP_SHARED, fdin, 0)) < 0) {
+    err_sys("mmap error for src file");
+  }
   /* 
    * 6. mmap the output file 
    */
+  if ((dst = mmap(NULL, statbuf.st_size, (PROT_READ|PROT_WRITE), MAP_SHARED, fdout , 0)) < 0) {
+    err_sys("mmap error for dst file");
+  }
 
   /* 
    * 7. copy the input file contents to the output file 
@@ -89,6 +105,8 @@ int main (int argc, char *argv[])
     * Hint: This operation is not what we're looking for since this only copies a single character (1 byte).
     * Consider using the `memcpy` function to copy a specified number of bytes.
     */
+  memcpy(dst,src,statbuf.st_size);
+
   *dst = *src;
 } 
 
